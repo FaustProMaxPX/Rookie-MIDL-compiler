@@ -10,11 +10,11 @@ import MIDLLexer;
 范围运算符：.. 或者 -，比如小写字母的表示：'a'..'z' 或者 [a-z]
 */
 
-specification: definition definition*;
+specification: definition+;
 definition: type_decl';'| module ';';
-module: 'module'ID '{' definition definition* '}';
+module: 'module' ID '{' definition+ '}';
 type_decl: struct_type | 'struct' ID;
-struct_type: 'struct' ID '{'member_list'}';
+struct_type: 'struct' ID '{' member_list '}';
 member_list: (type_spec declarators ';')*;
 type_spec: scoped_name | base_type_spec | struct_type;
 scoped_name: '::'? ID ('::' ID)*;
@@ -30,7 +30,8 @@ declarators: declarator (',' declarator)*;
 declarator: simple_declarator | array_declarator;
 simple_declarator: ID ('=' or_expr)?;
 array_declarator: ID '[' or_expr ']' ('=' exp_list)?;
-exp_list: '[' or_expr (',' or_expr)* ']';
+// 这里实验材料上写的是[]，但实际上数组应该是{}
+exp_list: '{' or_expr (',' or_expr)* '}';
 or_expr: xor_expr ('|' xor_expr)*;
 xor_expr: and_expr ('^' and_expr)*;
 and_expr: shift_expr ('&' shift_expr)*;
