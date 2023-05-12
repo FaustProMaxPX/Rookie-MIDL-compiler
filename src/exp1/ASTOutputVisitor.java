@@ -1,12 +1,12 @@
 package exp1;
-import gen.*;
+
+import gen.MIDLGrammarBaseVisitor;
+import gen.MIDLGrammarParser;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
-import java.util.List;
-import java.util.Objects;
-
+import static exp1.TreeNode.NodeKind.NON_TERMINAL;
+import static exp1.TreeNode.NodeKind.TERMINAL;
 import static exp1.TreeNode.NodeType.*;
-import static exp1.TreeNode.NodeKind.*;
 
 public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
 
@@ -18,10 +18,9 @@ public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
      * */
     @Override
     public TreeNode visitSpecification(MIDLGrammarParser.SpecificationContext ctx) {
-
-        TreeNode root = new TreeNode(NON_TERMINAL, SPECIFICATION);
-        for (MIDLGrammarParser.DefinitionContext definitionContext : ctx.definition()) {
-            root.addChild(visitDefinition(definitionContext));
+        TreeNode root = visitDefinition(ctx.definition(0));
+        for (int i = 1; i < ctx.definition().size(); i++) {
+            root.addSib(visitDefinition(ctx.definition(i)));
         }
         return root;
     }
@@ -44,6 +43,7 @@ public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     /**
      * module -> “module”ID “{” definition { definition } “}”
      * 包含ID和定义两种节点，定义节点有0..n个兄弟节点
+     * 这里可以直接将所有的definition归于module的子节点下
      * */
     @Override
     public TreeNode visitModule(MIDLGrammarParser.ModuleContext ctx) {
@@ -57,19 +57,27 @@ public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         return root;
     }
 
+    /**
+     * type_decl -> struct_type | “struct” ID
+     * 该节点有两种可能，子节点为struct_type或ID
+     * */
     @Override
     public TreeNode visitType_decl(MIDLGrammarParser.Type_declContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, TYPE_DECL);
         if (ctx.struct_type() != null) {
             root.addChild(visitStruct_type(ctx.struct_type()));
         } else {
-            TreeNode child = new TreeNode(TERMINAL, CONST, "struct");
-            child.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
-            root.addChild(child);
+//            TreeNode child = new TreeNode(TERMINAL, CONST, "struct");
+            root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
+//            root.addChild(child);
         }
         return root;
     }
 
+    /**
+     * struct_type->“struct” ID “{”   member_list “}”
+     * 该节点有两个子节点,ID和member_list
+     * */
     @Override
     public TreeNode visitStruct_type(MIDLGrammarParser.Struct_typeContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, STRUCT_TYPE);
@@ -78,12 +86,17 @@ public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         return root;
     }
 
+    /**
+     * member_list-> { type_spec declarators “;” }
+     * 该节点的子节点由任意数量的type_spec和declarators组成
+     * 每一对type_spec和declarators之间为兄弟关系,但这里可以直接全部作为member_list的子节点
+     * */
     @Override
     public TreeNode visitMember_list(MIDLGrammarParser.Member_listContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, MEMBER_LIST);
         for (int i = 0; i < ctx.type_spec().size(); i++) {
-            MIDLGrammarParser.Type_specContext specContext = ctx.type_spec().get(i);
-            MIDLGrammarParser.DeclaratorsContext declaratorsContext = ctx.declarators().get(i);
+            MIDLGrammarParser.Type_specContext specContext = ctx.type_spec(i);
+            MIDLGrammarParser.DeclaratorsContext declaratorsContext = ctx.declarators(i);
             TreeNode child = visitType_spec(specContext);
             child.addChild(visitDeclarators(declaratorsContext));
             root.addChild(child);
@@ -91,6 +104,9 @@ public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         return root;
     }
 
+    /**
+     * type_spec -> scoped_name | base_type_spec | struct_type
+     * */
     @Override
     public TreeNode visitType_spec(MIDLGrammarParser.Type_specContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, TYPE_SPEC);
@@ -104,6 +120,10 @@ public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         return root;
     }
 
+    /**
+     * scoped_name -> [“::”] ID {“::” ID }
+     * 由任意数量的ID组成,可以直接作为子节点集合串在当前节点下面
+     * */
     @Override
     public TreeNode visitScoped_name(MIDLGrammarParser.Scoped_nameContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, SCOPED_NAME);
@@ -113,6 +133,9 @@ public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         return root;
     }
 
+    /**
+     * base_type_spec->floating_pt_type|integer_type|“char”|“string”|“boolean”
+     * */
     @Override
     public TreeNode visitBase_type_spec(MIDLGrammarParser.Base_type_specContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, BASE_TYPE_SPEC);
@@ -158,6 +181,10 @@ public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         return root;
     }
 
+    /**
+     * declarators -> declarator {“,” declarator }
+     * 处理方式同上
+     * */
     @Override
     public TreeNode visitDeclarators(MIDLGrammarParser.DeclaratorsContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, DECLARATORS);
@@ -167,6 +194,9 @@ public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         return root;
     }
 
+    /**
+     * declarator -> simple_declarator | array_declarator
+     * */
     @Override
     public TreeNode visitDeclarator(MIDLGrammarParser.DeclaratorContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, DECLARATOR);
@@ -178,30 +208,38 @@ public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         return root;
     }
 
+    /**
+     * simple_declarator -> ID [“=” or_expr]
+     * =可以直接忽略,将or_expr与ID连接
+     * */
     @Override
     public TreeNode visitSimple_declarator(MIDLGrammarParser.Simple_declaratorContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, SIMPLE_DECLARATOR);
-        TreeNode child = new TreeNode(TERMINAL, ID, ctx.ID().getText());
+        root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
         if (ctx.or_expr() != null) {
-            TreeNode eqNode = new TreeNode(TERMINAL, CONST, "=");
-            eqNode.addChild(visitOr_expr(ctx.or_expr()));
-            child.addChild(eqNode);
+            root.addChild(visitOr_expr(ctx.or_expr()));
         }
-        root.addChild(child);
         return root;
     }
 
+    /**
+     * array_declarator -> ID “[” or_expr “]” [“=” exp_list ]
+     * ID与or_expr必有,exp_list可选,其余部分忽略
+     * */
     @Override
     public TreeNode visitArray_declarator(MIDLGrammarParser.Array_declaratorContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, ARRAY_DECLARATOR);
         root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
+        root.addChild(visitOr_expr(ctx.or_expr()));
         if (ctx.exp_list() != null) {
-            TreeNode child = new TreeNode(TERMINAL, CONST, "=");
-            child.addChild(visitExp_list(ctx.exp_list()));
+            root.addChild(visitExp_list(ctx.exp_list()));
         }
         return root;
     }
 
+    /**
+     * exp_list -> “[” or_expr { “,”or_expr } “]”
+     * */
     @Override
     public TreeNode visitExp_list(MIDLGrammarParser.Exp_listContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, EXP_LIST);
@@ -211,73 +249,72 @@ public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         return root;
     }
 
+    /**
+     * or_expr -> xor_expr {“|” xor_expr }
+     * 由于这里只可能有一种运算符,因此直接忽略,下面同理
+     * */
     @Override
     public TreeNode visitOr_expr(MIDLGrammarParser.Or_exprContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, OR_EXPR);
-        List<MIDLGrammarParser.Xor_exprContext> contexts = ctx.xor_expr();
-        root.addChild(visitXor_expr(contexts.get(0)));
-        for (int i = 1; i < contexts.size(); i++) {
-            TreeNode child = new TreeNode(TERMINAL, CONST, "|");
-            child.addChild(visitXor_expr(contexts.get(i)));
-            root.addChild(child);
+        root.addChild(visitXor_expr(ctx.xor_expr(0)));
+        for (int i = 1; i < ctx.xor_expr().size(); i++) {
+            root.addChild(visitXor_expr(ctx.xor_expr(i)));
         }
         return root;
     }
 
+    /**
+     * xor_expr -> and_expr {“^” and_expr }
+     * */
     @Override
     public TreeNode visitXor_expr(MIDLGrammarParser.Xor_exprContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, XOR_EXPR);
-        List<MIDLGrammarParser.And_exprContext> contexts = ctx.and_expr();
-        root.addChild(visitAnd_expr(contexts.get(0)));
-        for (int i = 1; i < contexts.size(); i++) {
-            TreeNode child = new TreeNode(TERMINAL, CONST, "^");
-            child.addChild(visitAnd_expr(contexts.get(i)));
-            root.addChild(child);
+        root.addChild(visitAnd_expr(ctx.and_expr(0)));
+        for (int i = 1; i < ctx.and_expr().size(); i++) {
+            root.addChild(visitAnd_expr(ctx.and_expr(i)));
         }
         return root;
     }
 
+    /**
+     * and_expr -> shift_expr {“&”shift_expr }
+     * */
     @Override
     public TreeNode visitAnd_expr(MIDLGrammarParser.And_exprContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, AND_EXPR);
-        List<MIDLGrammarParser.Shift_exprContext> contexts = ctx.shift_expr();
-        root.addChild(visitShift_expr(contexts.get(0)));
-        for (int i = 1; i < contexts.size(); i++) {
-            TreeNode child = new TreeNode(TERMINAL, CONST, "&");
-            child.addChild(visitShift_expr(contexts.get(i)));
-            root.addChild(child);
+        root.addChild(visitShift_expr(ctx.shift_expr(0)));
+        for (int i = 1; i < ctx.shift_expr().size(); i++) {
+            root.addChild(visitShift_expr(ctx.shift_expr(i)));
         }
         return root;
     }
 
+    /**
+     * shift_expr -> add_expr { (“>>” | “<<”) add_expr }
+     * 这里的运算符有两种可能,需要生成一个节点来存储
+     * */
     @Override
     public TreeNode visitShift_expr(MIDLGrammarParser.Shift_exprContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, SHIFT_EXPR);
-        List<MIDLGrammarParser.Add_exprContext> contexts = ctx.add_expr();
-        root.addChild(visitAdd_expr(contexts.get(0)));
-        for (int i = 1; i < contexts.size(); i++) {
-            TreeNode child = null;
-            if (ctx.getText().contains(">>")) child = new TreeNode(TERMINAL, CONST, ">>");
-            else if (ctx.getText().contains("<<")) child = new TreeNode(TERMINAL, CONST, "<<");
-            assert child != null;
-            child.addChild(visitAdd_expr(contexts.get(i)));
+        root.addChild(visitAdd_expr(ctx.add_expr(0)));
+        for (int i = 1; i < ctx.add_expr().size(); i++) {
+            TreeNode child = new TreeNode(TERMINAL, SHIFT_OP, ctx.SHIFT_OP(i - 1).getText());
+            child.addChild(visitAdd_expr(ctx.add_expr(i)));
             root.addChild(child);
         }
         return root;
     }
 
+    /**
+     * add_expr -> mult_expr { (“+” | “-”) mult_expr }
+     * */
     @Override
     public TreeNode visitAdd_expr(MIDLGrammarParser.Add_exprContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, ADD_EXPR);
-        List<MIDLGrammarParser.Mult_exprContext> contexts = ctx.mult_expr();
-        root.addChild(visitMult_expr(contexts.get(0)));
-        String text = ctx.getText();
-        for (int i = 1; i < contexts.size(); i++) {
-            TreeNode child = null;
-            if (text.contains("+")) child = new TreeNode(TERMINAL, CONST, "+");
-            else if (text.contains("-")) child = new TreeNode(TERMINAL, CONST, "-");
-            assert child != null;
-            child.addChild(visitMult_expr(contexts.get(i)));
+        root.addChild(visitMult_expr(ctx.mult_expr(0)));
+        for (int i = 1; i < ctx.mult_expr().size(); i++) {
+            TreeNode child = new TreeNode(TERMINAL, ADD_OP, ctx.ADD_OP(i - 1).getText());
+            child.addChild(visitMult_expr(ctx.mult_expr(i)));
             root.addChild(child);
         }
         return root;
@@ -286,15 +323,10 @@ public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     @Override
     public TreeNode visitMult_expr(MIDLGrammarParser.Mult_exprContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, MULT_EXPR);
-        List<MIDLGrammarParser.Unary_exprContext> contexts = ctx.unary_expr();
-        root.addChild(visitUnary_expr(contexts.get(0)));
-        for (int i = 1; i < contexts.size(); i++) {
-            TreeNode child = null;
-            if (ctx.getText().contains("*")) child = new TreeNode(TERMINAL, CONST, "*");
-            else if (ctx.getText().contains("/")) child = new TreeNode(TERMINAL, CONST, "/");
-            else if (ctx.getText().contains("%")) child = new TreeNode(TERMINAL, CONST, "%");
-            assert child != null;
-            child.addChild(visitUnary_expr(contexts.get(i)));
+        root.addChild(visitUnary_expr(ctx.unary_expr(0)));
+        for (int i = 1; i < ctx.unary_expr().size(); i++) {
+            TreeNode child = new TreeNode(TERMINAL, MULT_OP, ctx.MULT_OP(i - 1).getText());
+            child.addChild(visitUnary_expr(ctx.unary_expr(i)));
             root.addChild(child);
         }
         return root;
@@ -303,13 +335,8 @@ public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     @Override
     public TreeNode visitUnary_expr(MIDLGrammarParser.Unary_exprContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, UNARY_EXPR);
-        if (ctx.getText().contains("-")) {
-            root.addChild(new TreeNode(TERMINAL, CONST, "-"));
-        } else if (ctx.getText().contains("+")) {
-            root.addChild(new TreeNode(TERMINAL, CONST, "+"));
-        } else if (ctx.getText().contains("~")) {
-            root.addChild(new TreeNode(TERMINAL, CONST, "~"));
-        }
+        if (ctx.UNARY_OP() != null)
+            root.addChild(new TreeNode(TERMINAL, UNARY_OP, ctx.UNARY_OP().getText()));
         root.addChild(visitLiteral(ctx.literal()));
         return root;
     }

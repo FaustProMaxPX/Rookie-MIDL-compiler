@@ -8,9 +8,7 @@ import java.util.List;
  * 1. 节点类型
  * 2. 节点值
  * 3. 子节点
- * 4. 父节点
- * 5. 层级
- * 6. 兄弟节点
+ * 4. 兄弟节点
  * */
 public class TreeNode {
 
@@ -22,10 +20,7 @@ public class TreeNode {
 
     List<TreeNode> children;
 
-    TreeNode parent;
-
-    int level;
-
+    // 兄弟节点基本只在顶层用到
     List<TreeNode> siblings;
 
     public TreeNode(NodeKind nodeKind, NodeType nodeType) {
@@ -40,18 +35,16 @@ public class TreeNode {
         this.nodeType = nodeType;
         this.nodeKind = nodeKind;
         this.val = val;
-        this.level = level;
-        this.parent = null;
         this.siblings = new ArrayList<>();
         this.children = new ArrayList<>();
     }
 
-    public void setParent(TreeNode parent) {
-        this.parent = parent;
-    }
-
     public void addChild(TreeNode child) {
         this.children.add(child);
+    }
+
+    public void addSib(TreeNode sib) {
+        this.siblings.add(sib);
     }
 
     @Override
@@ -73,6 +66,7 @@ public class TreeNode {
     }
 
     public String display(int level) {
+
         StringBuilder builder = new StringBuilder();
         builder.append(nodeType);
         if (this.nodeKind == NodeKind.TERMINAL) {
@@ -80,10 +74,13 @@ public class TreeNode {
         }
         builder.append("\n");
         for (TreeNode child : children) {
-            for (int i = 0; i <= level; i++) {
-                builder.append('\t');
-            }
+            builder.append("\t".repeat(Math.max(0, level + 1)));
             builder.append(child.display(level + 1));
+        }
+//        只有根节点才会到达这个循环
+        for (TreeNode sibling : this.siblings) {
+            builder.append("\n");
+            builder.append(sibling.display(0));
         }
         return builder.toString();
     }
@@ -127,5 +124,9 @@ public class TreeNode {
         STRING,
         BOOLEAN,
         CONST,
+        SHIFT_OP,
+        ADD_OP,
+        MULT_OP,
+        UNARY_OP,
     }
 }
