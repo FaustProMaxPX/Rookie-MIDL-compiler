@@ -1,0 +1,6 @@
+module A {
+    struct B {
+        int i = 10 * 3 + 1;
+        short b = "a";
+    };
+};

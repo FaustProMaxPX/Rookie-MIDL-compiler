@@ -35,9 +35,13 @@ public class Main {
         Files.walk(path)
                 .filter(pathMatcher::matches)
                 .forEach(p -> {
-                    String in = p.toString();
-                    String out = in.replace(".idl", ".txt");
-                    genAST(in, out);
+                    try {
+                        String in = p.toString();
+                        String out = in.replace(".idl", ".txt");
+                        genAST(in, out);
+                    } catch (Exception e) {
+                        System.out.printf("error in file: %s\n", p.toString());
+                    }
                 });
     }
 }

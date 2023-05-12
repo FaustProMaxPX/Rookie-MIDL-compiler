@@ -1,0 +1,8 @@
+module One {
+    struct One1;
+};
+module Two {
+    struct Two1 {
+        int i_2 = 10;
+    };
+};

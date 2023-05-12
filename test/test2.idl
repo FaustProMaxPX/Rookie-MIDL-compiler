@@ -1,0 +1,10 @@
+module Nest {
+    struct A {
+        short i = 10;
+    };
+    module Inner {
+        struct inn {
+            char c = 'c';
+        };
+    };
+};
