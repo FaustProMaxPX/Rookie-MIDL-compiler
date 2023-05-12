@@ -43,18 +43,17 @@ public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
 
     /**
      * module -> “module”ID “{” definition { definition } “}”
-     * 包含ID和定义两个节点，定义节点有0..n个兄弟节点
+     * 包含ID和定义两种节点，定义节点有0..n个兄弟节点
      * */
     @Override
     public TreeNode visitModule(MIDLGrammarParser.ModuleContext ctx) {
 
         TreeNode root = new TreeNode(NON_TERMINAL, MODULE);
-        TreeNode child = new TreeNode(TERMINAL, CONST, "module");
-        child.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
+//        TreeNode child = new TreeNode(TERMINAL, CONST, "module");
+        root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
         for (MIDLGrammarParser.DefinitionContext definitionContext : ctx.definition()) {
-            child.addChild(visitDefinition(definitionContext));
+            root.addChild(visitDefinition(definitionContext));
         }
-        root.addChild(child);
         return root;
     }
 

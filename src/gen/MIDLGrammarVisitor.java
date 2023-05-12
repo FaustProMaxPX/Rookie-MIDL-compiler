@@ -1,5 +1,4 @@
 package gen;// Generated from D:/Work/Unbeatable working man/����ԭ��/midl/g4\MIDLGrammar.g4 by ANTLR 4.12.0
-import gen.MIDLGrammarParser;
 import org.antlr.v4.runtime.tree.ParseTreeVisitor;
 
 /**
