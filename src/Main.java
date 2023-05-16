@@ -1,7 +1,7 @@
-import exp1.ASTOutputVisitor;
-import exp1.TreeNode;
-import gen.MIDLGrammarLexer;
-import gen.MIDLGrammarParser;
+import rookie.midl.ast.RookieMIDLVisitor;
+import rookie.midl.ast.TreeNode;
+import rookie.midl.gen.MIDLGrammarLexer;
+import rookie.midl.gen.MIDLGrammarParser;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -18,7 +18,7 @@ public class Main {
             CommonTokenStream tokens = new CommonTokenStream(lexer);
             MIDLGrammarParser parser = new MIDLGrammarParser(tokens);
             MIDLGrammarParser.SpecificationContext ctx = parser.specification();
-            ASTOutputVisitor visitor = new ASTOutputVisitor();
+            RookieMIDLVisitor visitor = new RookieMIDLVisitor();
             TreeNode root = visitor.visit(ctx);
             out.write(root.display());
         } catch (IOException e) {

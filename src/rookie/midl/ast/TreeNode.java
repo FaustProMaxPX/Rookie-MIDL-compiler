@@ -1,14 +1,14 @@
-package exp1;
+package rookie.midl.ast;
 
 import java.util.ArrayList;
 import java.util.List;
-
 /*
  * AST所需元素：
  * 1. 节点类型
- * 2. 节点值
- * 3. 子节点
- * 4. 兄弟节点
+ * 2. 节点值类型
+ * 3. 节点值
+ * 4. 子节点
+ * 5. 兄弟节点
  * */
 public class TreeNode {
 

@@ -1,5 +1,5 @@
 grammar MIDLGrammar;
-//@header {package gen;}
+//@header {package rookie.midl.gen;}
 import MIDLLexer;
 /*
 | 表示或（备选分支）

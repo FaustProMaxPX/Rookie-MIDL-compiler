@@ -1,14 +1,14 @@
-package exp1;
+package rookie.midl.ast;
 
-import gen.MIDLGrammarBaseVisitor;
-import gen.MIDLGrammarParser;
+import rookie.midl.gen.MIDLGrammarBaseVisitor;
+import rookie.midl.gen.MIDLGrammarParser;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
-import static exp1.TreeNode.NodeKind.NON_TERMINAL;
-import static exp1.TreeNode.NodeKind.TERMINAL;
-import static exp1.TreeNode.NodeType.*;
+import static rookie.midl.ast.TreeNode.NodeKind.NON_TERMINAL;
+import static rookie.midl.ast.TreeNode.NodeKind.TERMINAL;
+import static rookie.midl.ast.TreeNode.NodeType.*;
 
-public class ASTOutputVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
+public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
 
 
     /**
