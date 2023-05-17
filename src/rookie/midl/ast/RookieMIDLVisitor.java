@@ -3,6 +3,7 @@ package rookie.midl.ast;
 import rookie.midl.gen.MIDLGrammarBaseVisitor;
 import rookie.midl.gen.MIDLGrammarParser;
 import org.antlr.v4.runtime.tree.TerminalNode;
+import rookie.midl.semantic.SymbolTable;
 
 import static rookie.midl.ast.TreeNode.NodeKind.NON_TERMINAL;
 import static rookie.midl.ast.TreeNode.NodeKind.TERMINAL;
@@ -10,6 +11,12 @@ import static rookie.midl.ast.TreeNode.NodeType.*;
 
 public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
 
+    private final SymbolTable symbolTable;
+
+    public RookieMIDLVisitor() {
+        super();
+        this.symbolTable = new SymbolTable();
+    }
 
     /**
      * specification -> definition { definition }
@@ -48,12 +55,17 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     @Override
     public TreeNode visitModule(MIDLGrammarParser.ModuleContext ctx) {
 
+//        push module's ID to current scope, then create a new scope
+        // TODO: handle exception
+        symbolTable.checkAndPush(ctx.ID().getText());
+        symbolTable.pushNewScope();
+
         TreeNode root = new TreeNode(NON_TERMINAL, MODULE);
-//        TreeNode child = new TreeNode(TERMINAL, CONST, "module");
         root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
         for (MIDLGrammarParser.DefinitionContext definitionContext : ctx.definition()) {
             root.addChild(visitDefinition(definitionContext));
         }
+
         return root;
     }
 
@@ -67,9 +79,9 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         if (ctx.struct_type() != null) {
             root.addChild(visitStruct_type(ctx.struct_type()));
         } else {
-//            TreeNode child = new TreeNode(TERMINAL, CONST, "struct");
+            // push a new element to current scope without creating a new scope
+            symbolTable.checkAndPush(ctx.ID().getText());
             root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
-//            root.addChild(child);
         }
         return root;
     }
@@ -80,9 +92,16 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
      * */
     @Override
     public TreeNode visitStruct_type(MIDLGrammarParser.Struct_typeContext ctx) {
+//        push a new element to current scope and then create a new scope
+        symbolTable.checkAndPush(ctx.ID().getText());
+        symbolTable.pushNewScope();
+
         TreeNode root = new TreeNode(NON_TERMINAL, STRUCT_TYPE);
         root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
         root.addChild(visitMember_list(ctx.member_list()));
+
+//        remove the scope created before
+        symbolTable.removeLastScope();
         return root;
     }
 
@@ -126,9 +145,20 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
      * */
     @Override
     public TreeNode visitScoped_name(MIDLGrammarParser.Scoped_nameContext ctx) {
+
+
         TreeNode root = new TreeNode(NON_TERMINAL, SCOPED_NAME);
+        StringBuilder builder = new StringBuilder();
         for (TerminalNode terminalNode : ctx.ID()) {
             root.addChild(new TreeNode(TERMINAL, ID, terminalNode.getText()));
+            builder.append(terminalNode.getText()).append("::");
+        }
+        String name = builder.substring(0, builder.length() - 2);
+
+        //        check if the element has been defined before
+//        TODO: current symbol can't resolve it if the parameter is a qualified name
+        if (!symbolTable.exist(name)) {
+            // TODO: handle exception
         }
         return root;
     }
@@ -214,6 +244,9 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
      * */
     @Override
     public TreeNode visitSimple_declarator(MIDLGrammarParser.Simple_declaratorContext ctx) {
+//        push the ID to current scope
+        symbolTable.checkAndPush(ctx.ID().getText());
+
         TreeNode root = new TreeNode(NON_TERMINAL, SIMPLE_DECLARATOR);
         root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
         if (ctx.or_expr() != null) {
@@ -228,6 +261,9 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
      * */
     @Override
     public TreeNode visitArray_declarator(MIDLGrammarParser.Array_declaratorContext ctx) {
+        //        push the ID to current scope
+        symbolTable.checkAndPush(ctx.ID().getText());
+
         TreeNode root = new TreeNode(NON_TERMINAL, ARRAY_DECLARATOR);
         root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
         root.addChild(visitOr_expr(ctx.or_expr()));

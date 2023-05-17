@@ -6,7 +6,7 @@ import java.util.*;
  * The structure to resolve analysis of semantic
  * composition:
  * a list of scope (the scope is presented by stack)
- * element in scope: fully qualified name
+ * element in scope: simple name
  * a list of set consisting of id in corresponding scope
  *
  * @author Xuanchen Chen
@@ -22,6 +22,9 @@ public class SymbolTable {
     public SymbolTable() {
         scopeList = new ArrayList<>();
         nameSetList = new ArrayList<>();
+//        initialize root scope
+        scopeList.add(new ArrayDeque<>());
+        nameSetList.add(new HashSet<>());
     }
 
     private Queue<String> getCurrentScope() {
@@ -48,13 +51,14 @@ public class SymbolTable {
      * @param elem the element to be added
      * */
     public void pushElem(String elem) {
-        String qualifiedName = getQualifiedName(elem);
+//        String qualifiedName = getQualifiedName(elem);
         Queue<String> currentScope = getCurrentScope();
         Set<String> currentNameSet = getCurrentNameSet();
-        if (!currentNameSet.add(qualifiedName)) {
+        String name = getInnerDecl(elem);
+        if (!currentNameSet.add(name)) {
             throw new RuntimeException("push element failed, because element with same name exists");
         }
-        currentScope.add(qualifiedName);
+        currentScope.add(name);
     }
 
     /**
@@ -63,9 +67,10 @@ public class SymbolTable {
      * @return weather element exist
      * */
     public boolean exist(String elem) {
-        String qualifiedName = getQualifiedName(elem);
+//        String qualifiedName = getQualifiedName(elem);
         Set<String> currentNameSet = getCurrentNameSet();
-        return currentNameSet.contains(qualifiedName);
+        String name = getInnerDecl(elem);
+        return currentNameSet.contains(name);
     }
 
     /**
@@ -80,11 +85,26 @@ public class SymbolTable {
     }
 
     /**
-     * get the qualified name of the specific elem
-     * it should only be used in current scope's element, this method won't check if you invoke it correctly
+     * get the best inner name of a qualified name
+     * eg: A::B -> B
+     * @param elem a qualified name or a simple name
+     * */
+    private String getInnerDecl(String elem) {
+        int index = elem.lastIndexOf("::");
+        return elem.substring(index == -1 ? 0 : index + 2);
+    }
+
+    /**
+     * get the qualified name of the specific elem.
+     * if got an incomplete name, this method will complete it.
+     * this method won't produce a right answer if you input a wrong parameter,
+     * please make sure the correctness of the parameter by yourself
      * @param elem the best inner name of the element
      * */
     public String getQualifiedName(String elem) {
+//        if elem use qualified name, don't process it
+        if (elem.contains("::")) return elem;
+
         StringBuilder buffer = new StringBuilder();
         for (int i = 0; i < scopeList.size() - 2; i++) {
             buffer.append(scopeList.get(i).getLast()).append("::");
