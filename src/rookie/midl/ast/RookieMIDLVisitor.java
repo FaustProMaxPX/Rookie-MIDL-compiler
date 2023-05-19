@@ -4,6 +4,8 @@ import rookie.midl.gen.MIDLGrammarBaseVisitor;
 import rookie.midl.gen.MIDLGrammarParser;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import rookie.midl.semantic.SymbolTable;
+import rookie.midl.semantic.exception.DuplicateDefinitionException;
+import rookie.midl.semantic.exception.UndefinedException;
 
 import static rookie.midl.ast.TreeNode.NodeKind.NON_TERMINAL;
 import static rookie.midl.ast.TreeNode.NodeKind.TERMINAL;
@@ -57,7 +59,9 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
 
 //        push module's ID to current scope, then create a new scope
         // TODO: handle exception
-        symbolTable.checkAndPush(ctx.ID().getText());
+        if (!symbolTable.checkAndPush(ctx.ID().getText())) {
+            throw new DuplicateDefinitionException(duplicateExceptionText(ctx.start.getLine(), "module", ctx.ID().getText()));
+        }
         symbolTable.pushNewScope();
 
         TreeNode root = new TreeNode(NON_TERMINAL, MODULE);
@@ -65,6 +69,8 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         for (MIDLGrammarParser.DefinitionContext definitionContext : ctx.definition()) {
             root.addChild(visitDefinition(definitionContext));
         }
+
+        symbolTable.removeLastScope();
 
         return root;
     }
@@ -80,7 +86,10 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
             root.addChild(visitStruct_type(ctx.struct_type()));
         } else {
             // push a new element to current scope without creating a new scope
-            symbolTable.checkAndPush(ctx.ID().getText());
+            if (!symbolTable.checkAndPush(ctx.ID().getText())) {
+                throw new DuplicateDefinitionException(duplicateExceptionText(ctx.start.getLine(), "struct", ctx.ID().getText()));
+            }
+            symbolTable.pushDefinedStruct(ctx.ID().getText());
             root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
         }
         return root;
@@ -93,8 +102,11 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     @Override
     public TreeNode visitStruct_type(MIDLGrammarParser.Struct_typeContext ctx) {
 //        push a new element to current scope and then create a new scope
-        symbolTable.checkAndPush(ctx.ID().getText());
+        if (!symbolTable.checkAndPush(ctx.ID().getText())) {
+            throw new DuplicateDefinitionException(duplicateExceptionText(ctx.start.getLine(), "struct", ctx.ID().getText()));
+        }
         symbolTable.pushNewScope();
+        symbolTable.pushDefinedStruct(ctx.ID().getText());
 
         TreeNode root = new TreeNode(NON_TERMINAL, STRUCT_TYPE);
         root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
@@ -156,9 +168,8 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         String name = builder.substring(0, builder.length() - 2);
 
         //        check if the element has been defined before
-//        TODO: current symbol can't resolve it if the parameter is a qualified name
-        if (!symbolTable.exist(name)) {
-            // TODO: handle exception
+        if (!symbolTable.checkIfDefined(name)) {
+            throw new UndefinedException(undefinedExceptionText(ctx.start.getLine(), name));
         }
         return root;
     }
@@ -245,7 +256,9 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     @Override
     public TreeNode visitSimple_declarator(MIDLGrammarParser.Simple_declaratorContext ctx) {
 //        push the ID to current scope
-        symbolTable.checkAndPush(ctx.ID().getText());
+        if (!symbolTable.checkAndPush(ctx.ID().getText())) {
+            throw new DuplicateDefinitionException(duplicateExceptionText(ctx.start.getLine(), "variable", ctx.ID().getText()));
+        }
 
         TreeNode root = new TreeNode(NON_TERMINAL, SIMPLE_DECLARATOR);
         root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
@@ -262,7 +275,9 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     @Override
     public TreeNode visitArray_declarator(MIDLGrammarParser.Array_declaratorContext ctx) {
         //        push the ID to current scope
-        symbolTable.checkAndPush(ctx.ID().getText());
+        if (!symbolTable.checkAndPush(ctx.ID().getText())) {
+            throw new DuplicateDefinitionException(duplicateExceptionText(ctx.start.getLine(), "array", ctx.ID().getText()));
+        }
 
         TreeNode root = new TreeNode(NON_TERMINAL, ARRAY_DECLARATOR);
         root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
@@ -392,5 +407,13 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
             root.addChild(new TreeNode(TERMINAL, STRING, ctx.STRING().getText()));
         }
         return root;
+    }
+
+    private String duplicateExceptionText(int line, String type, String name) {
+        return "[line " + line + "] " + type + " " + name + " has been defined before";
+    }
+
+    private String undefinedExceptionText(int line, String name) {
+        return "[line " + line + "] " + name + " was used before defined";
     }
 }

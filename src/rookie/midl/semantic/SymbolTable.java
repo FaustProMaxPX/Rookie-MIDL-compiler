@@ -19,9 +19,12 @@ public class SymbolTable {
 
     private final List<Set<String>> nameSetList;
 
+    private final Set<String> definedStructSet;
+
     public SymbolTable() {
         scopeList = new ArrayList<>();
         nameSetList = new ArrayList<>();
+        definedStructSet = new HashSet<>();
 //        initialize root scope
         scopeList.add(new ArrayDeque<>());
         nameSetList.add(new HashSet<>());
@@ -106,7 +109,7 @@ public class SymbolTable {
         if (elem.contains("::")) return elem;
 
         StringBuilder buffer = new StringBuilder();
-        for (int i = 0; i < scopeList.size() - 2; i++) {
+        for (int i = 0; i < scopeList.size() - 1; i++) {
             buffer.append(scopeList.get(i).getLast()).append("::");
         }
         return buffer.append(elem).toString();
@@ -118,5 +121,23 @@ public class SymbolTable {
     public void removeLastScope() {
         scopeList.remove(scopeList.size() - 1);
         nameSetList.remove(nameSetList.size() - 1);
+    }
+
+    /**
+     * push the qualified name of the elem to relative set
+     * @param elem the element defined in current scope
+     * */
+    public void pushDefinedStruct(String elem) {
+        String qualifiedName = getQualifiedName(elem);
+        definedStructSet.add(qualifiedName);
+    }
+
+    /**
+     * check if the element is defined before
+     * @param structName the name of a structure
+     * */
+    public boolean checkIfDefined(String structName) {
+        String qualifiedName = getQualifiedName(structName);
+        return definedStructSet.contains(qualifiedName);
     }
 }
