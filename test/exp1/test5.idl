@@ -3,6 +3,6 @@ module One {
 };
 module Two {
     struct Two1 {
-        int i_2 = 10;
+        int32 i_2 = 10;
     };
 };

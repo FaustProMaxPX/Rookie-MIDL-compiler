@@ -1,0 +1,8 @@
+struct A {
+    short i = 10;
+    char c = 'c';
+    unsigned long a = 2147383648;
+    boolean b = true;
+    string s = "a";
+    int32 arr[1] = {1};
+};

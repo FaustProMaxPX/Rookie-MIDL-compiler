@@ -1,0 +1,4 @@
+struct A {
+    long long a = 2147483648;
+    unsigned long b = 2147483648;
+};

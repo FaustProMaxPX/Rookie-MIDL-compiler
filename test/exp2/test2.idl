@@ -1,0 +1,8 @@
+module Test2 {
+    struct One {
+        short i = 32;
+    };
+    struct Two {
+        short i = 32;
+    };
+};

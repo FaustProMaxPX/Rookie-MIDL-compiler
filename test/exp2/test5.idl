@@ -1,0 +1,9 @@
+module Test1 {
+    struct A;
+};
+
+module Test2 {
+    struct B {
+        Test1::A a;
+    };
+};

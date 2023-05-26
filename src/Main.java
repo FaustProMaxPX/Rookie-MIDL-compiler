@@ -87,7 +87,7 @@ public class Main {
         Assert.assertFalse(checkDeclarator("int32", "2147483649"));
         Assert.assertTrue(checkDeclarator("uint32", "2147483648"));
         Assert.assertTrue(checkDeclarator("boolean", "true"));
-        Assert.assertTrue(checkDeclarator("char", "c"));
+        Assert.assertTrue(checkDeclarator("char", "'c'"));
         Assert.assertTrue(checkDeclarator("float", "1.23f"));
         Assert.assertTrue(checkDeclarator("double", "1.23d"));
         Assert.assertTrue(checkDeclarator("double", "1.23f"));
@@ -97,8 +97,4 @@ public class Main {
 
     }
 
-    @Test
-    public void checkTest() throws IOException {
-        semanticCheck("test/exp2/test8.idl");
-    }
 }

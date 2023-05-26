@@ -1,0 +1,9 @@
+module A {
+    struct B;
+};
+
+module B {
+    struct C {
+        A::B b;
+    };
+};

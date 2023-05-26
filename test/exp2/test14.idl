@@ -1,0 +1,3 @@
+struct A {
+    short i[32] = {1,2,'c',false};
+};

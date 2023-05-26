@@ -1,0 +1,6 @@
+module Test {
+    struct One {
+        int32 num = 1;
+        short num = 2;
+    };
+};
