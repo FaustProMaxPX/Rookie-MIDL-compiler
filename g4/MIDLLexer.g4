@@ -12,7 +12,6 @@ INTEGER_TYPE_SUFFIX: 'l' | 'L';
 SHIFT_OP: '>>' | '<<';
 ADD_OP: '+' | '-';
 MULT_OP: '*' | '/' | '%';
-UNARY_OP: '-'| '+' | '~';
 
 INTEGER: ('0' | [1-9] [0-9]*) INTEGER_TYPE_SUFFIX?;
 

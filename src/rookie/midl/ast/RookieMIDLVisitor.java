@@ -1,23 +1,35 @@
 package rookie.midl.ast;
 
+import org.antlr.v4.runtime.tree.TerminalNode;
 import rookie.midl.gen.MIDLGrammarBaseVisitor;
 import rookie.midl.gen.MIDLGrammarParser;
-import org.antlr.v4.runtime.tree.TerminalNode;
 import rookie.midl.semantic.SymbolTable;
 import rookie.midl.semantic.exception.DuplicateDefinitionException;
+import rookie.midl.semantic.exception.MisMatchException;
 import rookie.midl.semantic.exception.UndefinedException;
 
 import static rookie.midl.ast.TreeNode.NodeKind.NON_TERMINAL;
 import static rookie.midl.ast.TreeNode.NodeKind.TERMINAL;
 import static rookie.midl.ast.TreeNode.NodeType.*;
+import static rookie.midl.utils.TypeCheckUtil.checkDeclarator;
 
 public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
 
     private final SymbolTable symbolTable;
 
+    private String type;
+
+    private boolean isArr = false;
+
+    private int arrSize;
+
     public RookieMIDLVisitor() {
         super();
         this.symbolTable = new SymbolTable();
+    }
+
+    private void updateCurrentType(String type) {
+        this.type = type;
     }
 
     /**
@@ -58,7 +70,6 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     public TreeNode visitModule(MIDLGrammarParser.ModuleContext ctx) {
 
 //        push module's ID to current scope, then create a new scope
-        // TODO: handle exception
         if (!symbolTable.checkAndPush(ctx.ID().getText())) {
             throw new DuplicateDefinitionException(duplicateExceptionText(ctx.start.getLine(), "module", ctx.ID().getText()));
         }
@@ -171,6 +182,9 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         if (!symbolTable.checkIfDefined(name)) {
             throw new UndefinedException(undefinedExceptionText(ctx.start.getLine(), name));
         }
+
+        // update current type
+        updateCurrentType(name);
         return root;
     }
 
@@ -185,6 +199,7 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         } else if (ctx.integer_type() != null) {
             root.addChild(visitInteger_type(ctx.integer_type()));
         } else {
+            updateCurrentType(ctx.getText());
             root.addChild(new TreeNode(TERMINAL, CONST, ctx.getText()));
         }
         return root;
@@ -194,6 +209,7 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     public TreeNode visitFloating_pt_type(MIDLGrammarParser.Floating_pt_typeContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, FLOATING_PT_TYPE);
         root.addChild(new TreeNode(TERMINAL, CONST, ctx.getText()));
+        updateCurrentType(ctx.getText());
         return root;
     }
 
@@ -211,6 +227,7 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     @Override
     public TreeNode visitSigned_int(MIDLGrammarParser.Signed_intContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, SIGNED_INT);
+        updateCurrentType(ctx.getText());
         root.addChild(new TreeNode(TERMINAL, CONST, ctx.getText()));
         return root;
     }
@@ -218,6 +235,7 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     @Override
     public TreeNode visitUnsigned_int(MIDLGrammarParser.Unsigned_intContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, UNSIGNED_INT);
+        updateCurrentType(ctx.getText());
         root.addChild(new TreeNode(TERMINAL, CONST, ctx.getText()));
         return root;
     }
@@ -278,10 +296,13 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         if (!symbolTable.checkAndPush(ctx.ID().getText())) {
             throw new DuplicateDefinitionException(duplicateExceptionText(ctx.start.getLine(), "array", ctx.ID().getText()));
         }
-
+        String type = this.type;
+        updateCurrentType("int32");
+        isArr = true;
         TreeNode root = new TreeNode(NON_TERMINAL, ARRAY_DECLARATOR);
         root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
         root.addChild(visitOr_expr(ctx.or_expr()));
+        isArr = false;
         if (ctx.exp_list() != null) {
             root.addChild(visitExp_list(ctx.exp_list()));
         }
@@ -294,6 +315,9 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     @Override
     public TreeNode visitExp_list(MIDLGrammarParser.Exp_listContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, EXP_LIST);
+        if (ctx.or_expr().size() > arrSize) {
+            throw new MisMatchException("[line " + ctx.start.getLine() + " ]:" + "The size of arr is not match");
+        }
         for (MIDLGrammarParser.Or_exprContext orExprContext : ctx.or_expr()) {
             root.addChild(visitOr_expr(orExprContext));
         }
@@ -395,16 +419,19 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     @Override
     public TreeNode visitLiteral(MIDLGrammarParser.LiteralContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, LITERAL);
-        if (ctx.INTEGER() != null) {
+        if (ctx.INTEGER() != null && checkDeclarator(type, ctx.INTEGER().getText())) {
+            if (isArr) arrSize = Integer.parseInt(ctx.INTEGER().getText());
             root.addChild(new TreeNode(TERMINAL, INTEGER, ctx.INTEGER().getText()));
-        } else if (ctx.FLOATING_PT() != null) {
+        } else if (ctx.FLOATING_PT() != null && checkDeclarator(type, ctx.FLOATING_PT().getText())) {
             root.addChild(new TreeNode(TERMINAL, FLOATING_PT, ctx.FLOATING_PT().getText()));
-        } else if (ctx.CHAR() != null) {
+        } else if (ctx.CHAR() != null && checkDeclarator(type, ctx.CHAR().getText())) {
             root.addChild(new TreeNode(TERMINAL, CHAR, ctx.CHAR().getText()));
-        } else if (ctx.BOOLEAN() != null) {
+        } else if (ctx.BOOLEAN() != null && checkDeclarator(type, ctx.BOOLEAN().getText())) {
             root.addChild(new TreeNode(TERMINAL, BOOLEAN, ctx.BOOLEAN().getText()));
-        } else if (ctx.STRING() != null) {
+        } else if (ctx.STRING() != null && checkDeclarator(type, ctx.STRING().getText())) {
             root.addChild(new TreeNode(TERMINAL, STRING, ctx.STRING().getText()));
+        } else {
+            throw new MisMatchException("[line " + ctx.start.getLine() + "] " + type + " is not correspond to" + ctx.getText());
         }
         return root;
     }

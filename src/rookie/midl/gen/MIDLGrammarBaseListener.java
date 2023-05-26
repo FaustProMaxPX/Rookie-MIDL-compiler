@@ -1,5 +1,4 @@
-package rookie.midl.gen;// Generated from D:/Work/Unbeatable working man/����ԭ��/midl/g4\MIDLGrammar.g4 by ANTLR 4.12.0
-
+package rookie.midl.gen;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.TerminalNode;
