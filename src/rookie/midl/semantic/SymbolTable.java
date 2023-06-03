@@ -109,7 +109,7 @@ public class SymbolTable {
         if (elem.contains("::")) return elem;
 
         StringBuilder buffer = new StringBuilder();
-        for (int i = 0; i < scopeList.size() - 1; i++) {
+        for (int i = 1; i < scopeList.size() - 1; i++) {
             buffer.append(scopeList.get(i).getLast()).append("::");
         }
         return buffer.append(elem).toString();

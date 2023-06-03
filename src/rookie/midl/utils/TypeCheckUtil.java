@@ -61,7 +61,8 @@ public class TypeCheckUtil {
                 Pattern p = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+[fF]?$");
                 return p.matcher(decl).matches();
             }
-            case "double": {
+            case "double":
+            case "long double": {
                 Pattern p = Pattern.compile("^[-+]?[0-9]*\\.?[0-9]+([eE][-+]?[0-9]+)?[fFdD]?$");
                 return p.matcher(decl).matches();
             }

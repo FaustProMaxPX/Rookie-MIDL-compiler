@@ -2,6 +2,8 @@ package rookie.midl.ast;
 
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
+import rookie.midl.codegen.VarCollector;
+import rookie.midl.codegen.Variable;
 import rookie.midl.gen.MIDLGrammarBaseVisitor;
 import rookie.midl.gen.MIDLGrammarParser;
 import rookie.midl.semantic.SymbolTable;
@@ -22,15 +24,24 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
 
     private String type;
 
+    private String typeName;
+    // todo: 全局收集变量
     private boolean isArr = false;
 
     private int arrSize;
 
     private String unop = "";
 
+    private VarCollector varCollector;
+
+    // save current variable
+    private Variable variable;
+
     public RookieMIDLVisitor() {
         super();
         this.symbolTable = new SymbolTable();
+        this.varCollector = new VarCollector();
+        this.variable = new Variable();
     }
 
     private void updateCurrentType(String type) {
@@ -124,12 +135,17 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         symbolTable.pushNewScope();
         symbolTable.pushDefinedStruct(ctx.ID().getText());
 
+        String qualifiedName = symbolTable.getQualifiedName(ctx.ID().getText());
+        varCollector.createStruct(qualifiedName);
+
         TreeNode root = new TreeNode(NON_TERMINAL, STRUCT_TYPE);
         root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
         root.addChild(visitMember_list(ctx.member_list()));
 
 //        remove the scope created before
         symbolTable.removeLastScope();
+        varCollector.exitAndSave();
+
         return root;
     }
 
@@ -181,15 +197,16 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
             root.addChild(new TreeNode(TERMINAL, ID, terminalNode.getText()));
             builder.append(terminalNode.getText()).append("::");
         }
-        String name = builder.substring(0, builder.length() - 2);
+        String typename = builder.substring(0, builder.length() - 2);
 
         //        check if the element has been defined before
-        if (!symbolTable.checkIfDefined(name)) {
-            throw new UndefinedException(undefinedExceptionText(ctx.start.getLine(), name));
+        if (!symbolTable.checkIfDefined(typename)) {
+            throw new UndefinedException(undefinedExceptionText(ctx.start.getLine(), typename));
         }
 
         // update current type
-        updateCurrentType(name);
+        updateCurrentType(typename);
+        variable.setType(typename);
         return root;
     }
 
@@ -205,6 +222,7 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
             root.addChild(visitInteger_type(ctx.integer_type()));
         } else {
             updateCurrentType(ctx.getText());
+            variable.setType(ctx.getText());
             root.addChild(new TreeNode(TERMINAL, CONST, ctx.getText()));
         }
         return root;
@@ -215,6 +233,7 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         TreeNode root = new TreeNode(NON_TERMINAL, FLOATING_PT_TYPE);
         String typeName = getTypeName(ctx.children);
         root.addChild(new TreeNode(TERMINAL, CONST, typeName));
+        variable.setType(typeName);
         updateCurrentType(typeName);
         return root;
     }
@@ -235,6 +254,7 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         TreeNode root = new TreeNode(NON_TERMINAL, SIGNED_INT);
         String typeName = getTypeName(ctx.children);
         updateCurrentType(typeName);
+        variable.setType(typeName);
         root.addChild(new TreeNode(TERMINAL, CONST, typeName));
         return root;
     }
@@ -243,6 +263,7 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     public TreeNode visitUnsigned_int(MIDLGrammarParser.Unsigned_intContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, UNSIGNED_INT);
         String typeName = getTypeName(ctx.children);
+        variable.setType(typeName);
         updateCurrentType(typeName);
         root.addChild(new TreeNode(TERMINAL, CONST, typeName));
         return root;
@@ -286,6 +307,8 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
             throw new DuplicateDefinitionException(duplicateExceptionText(ctx.start.getLine(), "variable", ctx.ID().getText()));
         }
 
+        variable.setName(ctx.ID().getText());
+
         TreeNode root = new TreeNode(NON_TERMINAL, SIMPLE_DECLARATOR);
         root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
         if (ctx.or_expr() != null) {
@@ -305,6 +328,10 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
             throw new DuplicateDefinitionException(duplicateExceptionText(ctx.start.getLine(), "array", ctx.ID().getText()));
         }
         String type = this.type;
+
+        variable.setName(ctx.ID().getText());
+        variable.setArr(true);
+
         updateCurrentType("int32");
         isArr = true;
         TreeNode root = new TreeNode(NON_TERMINAL, ARRAY_DECLARATOR);
@@ -324,12 +351,17 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     @Override
     public TreeNode visitExp_list(MIDLGrammarParser.Exp_listContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, EXP_LIST);
+
+        variable.setExpr(ctx.getText());
+
         if (ctx.or_expr().size() > arrSize) {
             throw new MisMatchException("[line " + ctx.start.getLine() + " ]:" + "The size of arr is not match");
         }
         for (MIDLGrammarParser.Or_exprContext orExprContext : ctx.or_expr()) {
             root.addChild(visitOr_expr(orExprContext));
         }
+        // save must be executed in the end, otherwise the first or_expr in exp_list will be handled as next variable
+        saveVar();
         return root;
     }
 
@@ -340,6 +372,14 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     @Override
     public TreeNode visitOr_expr(MIDLGrammarParser.Or_exprContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, OR_EXPR);
+        // if current type is an array and its size has not been assigned, the result of this or_expr is its size
+        // else if the type is not an array, this is the variable's expression
+        if (checkVarArr()) {
+            variable.setArrSize(Integer.parseInt(ctx.getText()));
+        } else if (!variable.isArr()) {
+            variable.setExpr(ctx.getText());
+            saveVar();
+        }
         root.addChild(visitXor_expr(ctx.xor_expr(0)));
         for (int i = 1; i < ctx.xor_expr().size(); i++) {
             root.addChild(visitXor_expr(ctx.xor_expr(i)));
@@ -381,8 +421,21 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     public TreeNode visitShift_expr(MIDLGrammarParser.Shift_exprContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, SHIFT_EXPR);
         root.addChild(visitAdd_expr(ctx.add_expr(0)));
+        int start = 0;
+        String text = ctx.getText();
         for (int i = 1; i < ctx.add_expr().size(); i++) {
-            TreeNode child = new TreeNode(TERMINAL, SHIFT_OP, ctx.SHIFT_OP(i - 1).getText());
+            int i1 = text.indexOf(">>", start);
+            i1 = checkValidIdx(i1);
+            int i2 = text.indexOf("<<", start);
+            i2 = checkValidIdx(i2);
+            String op = ">>";
+            if (i1 > i2) {
+                start = i2 + 2;
+                op = "<<";
+            } else {
+                start = i1 + 2;
+            }
+            TreeNode child = new TreeNode(TERMINAL, SHIFT_OP, op);
             child.addChild(visitAdd_expr(ctx.add_expr(i)));
             root.addChild(child);
         }
@@ -396,8 +449,21 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     public TreeNode visitAdd_expr(MIDLGrammarParser.Add_exprContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, ADD_EXPR);
         root.addChild(visitMult_expr(ctx.mult_expr(0)));
+        String text = ctx.getText();
+        int start = 0;
         for (int i = 1; i < ctx.mult_expr().size(); i++) {
-            TreeNode child = new TreeNode(TERMINAL, ADD_OP, ctx.ADD_OP(i - 1).getText());
+            int i1 = text.indexOf("+", start);
+            int i2 = text.indexOf("-", start);
+            i1 = checkValidIdx(i1);
+            i2 = checkValidIdx(i2);
+            String op = "+";
+            if (i1 < i2) {
+                start = i1 + 1;
+            } else {
+                start = i2 + 1;
+                op = "-";
+            }
+            TreeNode child = new TreeNode(TERMINAL, ADD_OP, op);
             child.addChild(visitMult_expr(ctx.mult_expr(i)));
             root.addChild(child);
         }
@@ -408,8 +474,27 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     public TreeNode visitMult_expr(MIDLGrammarParser.Mult_exprContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, MULT_EXPR);
         root.addChild(visitUnary_expr(ctx.unary_expr(0)));
+        int start = 0;
+        String text = ctx.getText();
         for (int i = 1; i < ctx.unary_expr().size(); i++) {
-            TreeNode child = new TreeNode(TERMINAL, MULT_OP, ctx.MULT_OP(i - 1).getText());
+            int i1 = text.indexOf("*", start);
+            int i2 = text.indexOf("/", start);
+            int i3 = text.indexOf("%", start);
+            i1 = checkValidIdx(i1);
+            i2 = checkValidIdx(i2);
+            i3 = checkValidIdx(i3);
+            int maxn = Math.min(i1, Math.min(i2, i3));
+            String op = "*";
+            if (i1 == maxn) {
+                start = i1 + 1;
+            } else if (i2 == maxn) {
+                start = i2 + 1;
+                op = "/";
+            } else {
+                start = i3 + 1;
+                op = "%";
+            }
+            TreeNode child = new TreeNode(TERMINAL, MULT_OP, op);
             child.addChild(visitUnary_expr(ctx.unary_expr(i)));
             root.addChild(child);
         }
@@ -468,5 +553,18 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
             builder.append(children.get(i).getText());
         }
         return builder.toString();
+    }
+
+    private boolean checkVarArr() {
+        return variable.isArr() && variable.getArrSize() == -1;
+    }
+
+    private void saveVar() {
+        varCollector.addVar(variable);
+        variable = new Variable();
+    }
+
+    private int checkValidIdx(int index) {
+        return index == -1 ? Integer.MAX_VALUE : index;
     }
 }
