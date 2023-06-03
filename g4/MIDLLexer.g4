@@ -7,12 +7,6 @@ UNDERLINE: '_';
 
 INTEGER_TYPE_SUFFIX: 'l' | 'L';
 
-// 所有 能表示多种运算符的节点都必须写入词法文件，
-// 否则antlr不会将其识别为token，也就不能在生成树中直接追踪
-SHIFT_OP: '>>' | '<<';
-ADD_OP: '+' | '-';
-MULT_OP: '*' | '/' | '%';
-
 INTEGER: ('0' | [1-9] [0-9]*) INTEGER_TYPE_SUFFIX?;
 
 EXPONENT: ('e' | 'E') ('+' | '-')? [0-9]+;

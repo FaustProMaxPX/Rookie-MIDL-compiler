@@ -35,9 +35,9 @@ exp_list: '{' or_expr (',' or_expr)* '}';
 or_expr: xor_expr ('|' xor_expr)*;
 xor_expr: and_expr ('^' and_expr)*;
 and_expr: shift_expr ('&' shift_expr)*;
-shift_expr: add_expr (SHIFT_OP add_expr)*;
-add_expr: mult_expr ( ADD_OP mult_expr )*;
-mult_expr: unary_expr ( MULT_OP unary_expr )*;
+shift_expr: add_expr ( ('>>' | '<<') add_expr)*;
+add_expr: mult_expr ( ('+' | '-') mult_expr )*;
+mult_expr: unary_expr ( ('*' | '/' | '%') unary_expr )*;
 // 这里只能用字面量，不能提取到词法定义里去，不然会和ADD_OP冲突。antlr貌似不支持根据上下文推断
 unary_expr: ('+' | '-' | '~')? literal;
 literal: INTEGER | FLOATING_PT | CHAR | STRING | BOOLEAN;
