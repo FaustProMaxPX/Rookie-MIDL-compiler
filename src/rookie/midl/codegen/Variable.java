@@ -15,18 +15,11 @@ public class Variable {
     private String name;
     private String expr;
     private boolean isArr;
+    private boolean isPrimitive;
     private int arrSize;
 
     public Variable() {
         this.arrSize = -1;
-    }
-
-    public Variable(String type, String name, String expr, boolean isArr, int arrSize) {
-        this.type = type;
-        this.name = name;
-        this.expr = expr;
-        this.isArr = isArr;
-        this.arrSize = arrSize;
     }
 
     public void setType(String type) {
@@ -67,5 +60,13 @@ public class Variable {
 
     public int getArrSize() {
         return arrSize;
+    }
+
+    public boolean isPrimitive() {
+        return isPrimitive;
+    }
+
+    public void setPrimitive(boolean primitive) {
+        isPrimitive = primitive;
     }
 }

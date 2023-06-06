@@ -109,7 +109,7 @@ public class SymbolTable {
         if (elem.contains("::")) return elem;
 
         StringBuilder buffer = new StringBuilder();
-        for (int i = 1; i < scopeList.size() - 1; i++) {
+        for (int i = 0; i < scopeList.size() - 1; i++) {
             buffer.append(scopeList.get(i).getLast()).append("::");
         }
         return buffer.append(elem).toString();
@@ -137,7 +137,33 @@ public class SymbolTable {
      * @param structName the name of a structure
      * */
     public boolean checkIfDefined(String structName) {
+        // there are two possibilities:
+        // its qualified name exist in definedStruct
+        // or the name is in the same scope
+        if (scopeList.size() >= 2) {
+            Deque<String> deque = scopeList.get(scopeList.size() - 2);
+            if (deque.contains(structName)) return true;
+        }
         String qualifiedName = getQualifiedName(structName);
         return definedStructSet.contains(qualifiedName);
+    }
+
+    /**
+     * get the qualified name that has been defined before
+     * @param elem the best inner name of the element
+     * */
+    public String getExistQualifiedName(String elem) {
+        if (elem.contains("::")) return elem;
+        if (scopeList.size() >= 2) {
+            if (scopeList.get(scopeList.size() - 2).contains(elem)) {
+                StringBuilder builder = new StringBuilder();
+                for (int i = 0; i < scopeList.size() - 2; i++) {
+                    builder.append(scopeList.get(i).getLast()).append("::");
+                }
+                builder.append(elem);
+                return builder.toString();
+            }
+        }
+        return getQualifiedName(elem);
     }
 }

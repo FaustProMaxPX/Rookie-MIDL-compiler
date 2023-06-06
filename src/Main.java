@@ -1,20 +1,25 @@
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
 import org.junit.Assert;
 import org.junit.Test;
 import rookie.midl.ast.RookieMIDLVisitor;
 import rookie.midl.ast.TreeNode;
+import rookie.midl.codegen.CodeRender;
+import rookie.midl.codegen.VarCollector;
 import rookie.midl.gen.MIDLGrammarLexer;
 import rookie.midl.gen.MIDLGrammarParser;
-import org.antlr.v4.runtime.CharStream;
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
 import rookie.midl.semantic.exception.DuplicateDefinitionException;
 import rookie.midl.semantic.exception.MisMatchException;
 import rookie.midl.semantic.exception.UndefinedException;
-import static rookie.midl.utils.TypeCheckUtil.*;
 
-import java.io.*;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.Writer;
 import java.nio.file.*;
-import java.util.regex.Pattern;
+
+import static rookie.midl.utils.TypeCheckUtil.checkDeclarator;
 
 public class Main {
 
@@ -41,6 +46,21 @@ public class Main {
         MIDLGrammarParser.SpecificationContext ctx = parser.specification();
         RookieMIDLVisitor visitor = new RookieMIDLVisitor();
         TreeNode root = visitor.visit(ctx);
+    }
+
+    public static void genCode(String input) throws IOException {
+        CharStream cs = CharStreams.fromFileName(input);
+        MIDLGrammarLexer lexer = new MIDLGrammarLexer(cs);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        MIDLGrammarParser parser = new MIDLGrammarParser(tokens);
+        MIDLGrammarParser.SpecificationContext ctx = parser.specification();
+        RookieMIDLVisitor visitor = new RookieMIDLVisitor();
+        visitor.visit(ctx);
+        VarCollector varCollector = visitor.getVarCollector();
+        int idx = input.lastIndexOf("/") + 1;
+        String filename = input.substring(idx, input.lastIndexOf("."));
+        CodeRender codeRender = new CodeRender(varCollector, "rookie/midl/codegen/template.stg", filename);
+        codeRender.render(input.replace(".idl", ".hxx"));
     }
 
     @Test
@@ -94,7 +114,7 @@ public class Main {
     }
 
     public static void main(String[] args) throws IOException {
-
+        genCode("test/codegen/all_type.idl");
     }
 
 }

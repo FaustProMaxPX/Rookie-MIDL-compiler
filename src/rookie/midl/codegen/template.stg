@@ -1,0 +1,166 @@
+file_head(filename) ::= <<
+#ifndef <filename>_h
+#define <filename>_h
+
+#ifndef rti_me_cpp_hxx
+#include "rti_me_cpp.hxx"
+#endif
+
+#ifdef NDDS_USER_DLL_EXPORT
+#if (defined(RTI_WIN32) || defined(RTI_WINCE))
+/* If the code is building on Windows, start exporting symbols. */
+#undef NDDSUSERDllExport
+#define NDDSUSERDllExport __declspec(dllexport)
+#endif
+#else
+#undef NDDSUSERDllExport
+#define NDDSUSERDllExport
+#endif
+
+>>
+
+obj_head(name) ::= <<
+struct <name>Seq;
+class <name>TypeSupport;
+class <name>DataWriter;
+class <name>DataReader;
+
+>>
+
+/* 最后还要加上收尾的花括号和分号 */
+obj_body(name) ::= <<
+class <name>
+{
+  public:
+    typedef struct <name>Seq Seq;
+    typedef <name>TypeSupport TypeSupport;
+    typedef <name>DataWriter DataWriter;
+    typedef <name>DataReader DataReader;
+
+
+>>
+
+gen_decl(type, decl, expr, isPrimitive, isArr, arrSize) ::= <<
+    <if(isArr)>
+    <if(isPrimitive)>
+    CDR_<type> <decl>[<arrSize>] = <expr>;
+    <else>
+    <type> <decl>[<arrSize>] = <expr>;
+    <endif>
+    <elseif(isPrimitive)>
+    CDR_<type> <decl> = <expr>;
+    <else>
+    <type> <decl>;
+    <endif>
+
+>>
+
+decl_end(name) ::= <<
+};
+extern const char *<name>TYPENAME;
+
+REDA_DEFINE_SEQUENCE_STRUCT(<name>Seq, <name>);
+
+REDA_DEFINE_SEQUENCE_IN_C(<name>Seq, <name>);
+
+>>
+
+read_method(name) ::= <<
+extern const char *<name>TYPENAME;
+
+REDA_DEFINE_SEQUENCE_STRUCT(<name>Seq, <name>);
+
+REDA_DEFINE_SEQUENCE_IN_C(<name>Seq, <name>);
+
+>>
+
+init_method_start(name) ::= <<
+NDDSUSERDllExport extern RTI_BOOL
+<name>_initialize(<name>* sample)
+{
+
+>>
+
+/*嵌套结构处理*/
+init_param(type, decl, isPrimitive, isArr, arrSize) ::= <<
+    <if(isArr)>
+        <if(isPrimitive)>
+    CDR_Primitive_init_Array(sample-><decl>, ((<arrSize>)*CDR_<type>_SIZE));
+        <else>
+    CDR_<type>_init_Array(sample-><decl>, ((<arrSize>)*<type>_SIZE));
+        <endif>
+    <elseif(isPrimitive)>
+    CDR_Primitive_init_<type>(&sample-><decl>);
+    <else>
+    if (!<type>_initialize(&sample-><decl>)) {
+        return RTI_FALSE;
+    }
+    <endif>
+
+>>
+
+method_end() ::= <<
+    return RTI_TRUE;
+}
+
+>>
+
+finalize_start(type) ::= <<
+NDDSUSERDllExport extern RTI_BOOL
+<type>_finalize(<type>* sample)
+{
+    UNUSED_ARG(sample);
+
+>>
+
+finalize_param(type, decl, isPrimitive, isArr, arrSize) ::= <<
+    <if(isArr)>
+    {
+        RTI_UINT32 i;
+
+        for (i = 0; i \< <arrSize>; i++) {
+            <if(isPrimitive)>
+            if (!CDR_<type>_copy(&dst-><decl>[i] ,
+            &src-><decl>[i]  )) {
+                return RTI_FALSE;
+            }
+            <else>
+            if (!<type>_copy(&dst-><decl>[i] ,
+            &src-><decl>[i]  )) {
+                return RTI_FALSE;
+            }
+            <endif>
+        }
+    }
+    <elseif(!isPrimitive)>
+    <type>_finalize(&sample-><decl>);
+    <endif>
+
+>>
+
+file_end() ::= <<
+#ifdef NDDS_USER_DLL_EXPORT
+#if (defined(RTI_WIN32) || defined(RTI_WINCE))
+/* If the code is building on Windows, stop exporting symbols. */
+#undef NDDSUSERDllExport
+#define NDDSUSERDllExport
+#endif
+#endif
+
+#endif
+>>
+
+nested_constructor_start(name) ::= <<
+NDDSUSERDllExport extern
+<name>(){
+
+>>
+
+nested_constructor_param(nested, outerdecl, innerdecl, expr) ::= <<
+    <if(nested)>
+    this-><outerdecl>-><innerdecl> = <expr>;
+    <else>
+    this-><outerdecl> = <expr>;
+    <endif>
+
+>>

@@ -24,8 +24,6 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
 
     private String type;
 
-    private String typeName;
-    // todo: 全局收集变量
     private boolean isArr = false;
 
     private int arrSize;
@@ -132,10 +130,10 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         if (!symbolTable.checkAndPush(ctx.ID().getText())) {
             throw new DuplicateDefinitionException(duplicateExceptionText(ctx.start.getLine(), "struct", ctx.ID().getText()));
         }
-        symbolTable.pushNewScope();
-        symbolTable.pushDefinedStruct(ctx.ID().getText());
-
         String qualifiedName = symbolTable.getQualifiedName(ctx.ID().getText());
+        symbolTable.pushDefinedStruct(ctx.ID().getText());
+        symbolTable.pushNewScope();
+
         varCollector.createStruct(qualifiedName);
 
         TreeNode root = new TreeNode(NON_TERMINAL, STRUCT_TYPE);
@@ -206,7 +204,8 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
 
         // update current type
         updateCurrentType(typename);
-        variable.setType(typename);
+        variable.setType(symbolTable.getExistQualifiedName(typename));
+        variable.setPrimitive(false);
         return root;
     }
 
@@ -216,6 +215,7 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
     @Override
     public TreeNode visitBase_type_spec(MIDLGrammarParser.Base_type_specContext ctx) {
         TreeNode root = new TreeNode(NON_TERMINAL, BASE_TYPE_SPEC);
+        variable.setPrimitive(true);
         if (ctx.floating_pt_type() != null) {
             root.addChild(visitFloating_pt_type(ctx.floating_pt_type()));
         } else if (ctx.integer_type() != null) {
@@ -308,7 +308,9 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
         }
 
         variable.setName(ctx.ID().getText());
-
+        if (!variable.isArr() && !variable.isPrimitive()) {
+            saveVar();
+        }
         TreeNode root = new TreeNode(NON_TERMINAL, SIMPLE_DECLARATOR);
         root.addChild(new TreeNode(TERMINAL, ID, ctx.ID().getText()));
         if (ctx.or_expr() != null) {
@@ -536,6 +538,10 @@ public class RookieMIDLVisitor extends MIDLGrammarBaseVisitor<TreeNode> {
             throw new MisMatchException("[line " + ctx.start.getLine() + "] " + type + " is not correspond to " + ctx.getText());
         }
         return root;
+    }
+
+    public VarCollector getVarCollector() {
+        return varCollector;
     }
 
     private String duplicateExceptionText(int line, String type, String name) {
