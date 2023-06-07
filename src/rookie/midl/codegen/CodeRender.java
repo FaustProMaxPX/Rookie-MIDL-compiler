@@ -70,8 +70,6 @@ public class CodeRender {
 
         builder.append(stg.getInstanceOf("decl_end").add("name", name).render());
 
-        builder.append(stg.getInstanceOf("read_method").add("name", name).render());
-
         // constructor. if the structure is nested
         if (varCollector.isNested(preName)) {
             builder.append(stg.getInstanceOf("nested_constructor_start").add("name", name).render());

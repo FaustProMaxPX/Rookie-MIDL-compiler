@@ -65,15 +65,6 @@ REDA_DEFINE_SEQUENCE_IN_C(<name>Seq, <name>);
 
 >>
 
-read_method(name) ::= <<
-extern const char *<name>TYPENAME;
-
-REDA_DEFINE_SEQUENCE_STRUCT(<name>Seq, <name>);
-
-REDA_DEFINE_SEQUENCE_IN_C(<name>Seq, <name>);
-
->>
-
 init_method_start(name) ::= <<
 NDDSUSERDllExport extern RTI_BOOL
 <name>_initialize(<name>* sample)
@@ -158,7 +149,7 @@ NDDSUSERDllExport extern
 
 nested_constructor_param(nested, outerdecl, innerdecl, expr) ::= <<
     <if(nested)>
-    this-><outerdecl>-><innerdecl> = <expr>;
+    this-><outerdecl>.<innerdecl> = <expr>;
     <else>
     this-><outerdecl> = <expr>;
     <endif>
