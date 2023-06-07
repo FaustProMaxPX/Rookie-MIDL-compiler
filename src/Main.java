@@ -57,7 +57,7 @@ public class Main {
         RookieMIDLVisitor visitor = new RookieMIDLVisitor();
         visitor.visit(ctx);
         VarCollector varCollector = visitor.getVarCollector();
-        int idx = input.lastIndexOf("/") + 1;
+        int idx = input.lastIndexOf(FileSystems.getDefault().getSeparator()) + 1;
         String filename = input.substring(idx, input.lastIndexOf("."));
         CodeRender codeRender = new CodeRender(varCollector, "rookie/midl/codegen/template.stg", filename);
         codeRender.render(input.replace(".idl", ".hxx"));
@@ -113,8 +113,25 @@ public class Main {
         Assert.assertTrue(checkDeclarator("double", "1.23f"));
     }
 
+    @Test
+    public void genCodeTest() throws IOException {
+        Path path = Paths.get("test", "codegen");
+        PathMatcher pathMatcher = FileSystems.getDefault().getPathMatcher("glob:**/*.{idl}");
+        Files.walk(path)
+                .filter(pathMatcher::matches)
+                .forEach(p -> {
+                    try {
+                        String in = p.toString();
+                        genCode(in);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        System.out.printf("error in file: %s\n", p.toString());
+                    }
+                });
+    }
+
     public static void main(String[] args) throws IOException {
-        genCode("test/codegen/all_type.idl");
+//        genCode("test/codegen/all_type.idl");
     }
 
 }
